@@ -1,0 +1,104 @@
+import argparse
+
+RULES = [
+    {
+        "conditions": ["car_wont_start", "battery_voltage_low"],
+        "issue": "Weak / Dead Battery",
+        "confidence": 0.95,
+        "advice": "Recharge or replace the battery. Clean terminals and test with a load tester.",
+        "explain": "Car won't start + low voltage strongly indicates a dead or weak battery."
+    },
+    {
+        "conditions": ["car_wont_start", "battery_voltage_ok"],
+        "issue": "Faulty Starter Motor",
+        "confidence": 0.80,
+        "advice": "Check starter motor relay, solenoid, and main starter connections.",
+        "explain": "Car won't start but voltage is normal → starter likely isn't engaging."
+    },
+    {
+        "conditions": ["dim_lights", "battery_voltage_low"],
+        "issue": "Battery Not Holding Charge",
+        "confidence": 0.85,
+        "advice": "Test the battery's cold cranking amps (CCA). Replace if weak.",
+        "explain": "Dim lights + low voltage usually means the battery is failing."
+    },
+    {
+        "conditions": ["engine_stalls", "misfire"],
+        "issue": "Ignition Misfire (Spark Plugs / Coils)",
+        "confidence": 0.88,
+        "advice": "Inspect spark plugs, ignition coils, and plug wires.",
+        "explain": "Misfires and stalling often come from ignition system faults."
+    },
+    {
+        "conditions": ["engine_overheating"],
+        "issue": "Engine Overheating (Cooling System Issue)",
+        "confidence": 0.92,
+        "advice": "Check coolant level, radiator fan, thermostat, and water pump.",
+        "explain": "Overheating indicates a coolant or airflow problem."
+    },
+    {
+        "conditions": ["ev_battery_hot", "range_drop"],
+        "issue": "EV Battery Thermal Issue",
+        "confidence": 0.97,
+        "advice": "Stop charging, move vehicle to shade, and schedule EV battery diagnostics.",
+        "explain": "High battery temps + sudden range drop are common EV battery failure signs."
+    },
+]
+
+def interpret_facts(raw_facts):
+    facts = raw_facts.copy()
+
+    if "battery_voltage" in facts:
+        voltage = facts["battery_voltage"]
+        facts["battery_voltage_low"] = voltage < 11.5
+        facts["battery_voltage_ok"] = voltage >= 11.5
+
+    return facts
+def diagnose(facts):
+    interpreted = interpret_facts(facts)
+    triggered = []
+
+    for rule in RULES:
+        if all(interpreted.get(cond, False) for cond in rule["conditions"]):
+            triggered.append({
+                "issue": rule["issue"],
+                "confidence": rule["confidence"],
+                "advice": rule["advice"],
+                "explain": rule["explain"],
+                "conditions_triggered": rule["conditions"]
+            })
+
+    return sorted(triggered, key=lambda x: x["confidence"], reverse=True)
+
+def run_demo():
+    print("\n=== DEMO 1: Car won't start + dim lights + 10.5V ===")
+    result = diagnose({
+        "car_wont_start": True,
+        "dim_lights": True,
+        "battery_voltage": 10.5
+    })
+    for r in result:
+        print(f"- {r['issue']} (confidence {r['confidence']})")
+
+    print("\n=== DEMO 2: EV battery hot + range dropped ===")
+    result = diagnose({
+        "ev_battery_hot": True,
+        "range_drop": True
+    })
+    for r in result:
+        print(f"- {r['issue']} (confidence {r['confidence']})")
+
+    print("\n=== DEMO 3: Engine misfire + stalls ===")
+    result = diagnose({
+        "misfire": True,
+        "engine_stalls": True
+    })
+    for r in result:
+        print(f"- {r['issue']} (confidence {r['confidence']})")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--demo", action="store_true", help="Run demo scenarios")
+    args = parser.parse_args()
+
+    run_demo()
